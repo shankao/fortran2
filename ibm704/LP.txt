@@ -1,0 +1,94 @@
+      A=3.
+      B=1.7
+      C=-31.92
+      ROOT=(-B+SQRTF(B**2.-4.*A*C))/(2.*A)
+      PRINT 1,ROOT
+1     FORMAT(5F14.5)
+      STOP
+
+
+                 EXTERNAL FORMULA NUMBERS WITH CORRESPONDING INTERNAL FORMULA NUMBERS AND OCTAL LOCATIONS
+
+        EFN   IFN   LOC         EFN   IFN   LOC         EFN   IFN   LOC         EFN   IFN   LOC         EFN   IFN   LOC
+           1     8 00000
+
+                                          STORAGE NOT USED BY PROGRAM
+
+              DEC   OCT               DEC   OCT
+                68 00104             32562 77462
+
+                                    LOCATIONS OF NAMES IN TRANSFER VECTOR
+
+              DEC   OCT               DEC   OCT               DEC   OCT               DEC   OCT               DEC   OCT
+       EXP(3     4 00004        SQRT     5 00005       (BDC)     2 00002       (FIL)     0 00000       (LEV)     3 00003
+       (SPH)     1 00001
+
+               STORAGE LOCATIONS FOR VARIABLES NOT APPEARING IN DIMENSION,EQUIVALENCE OR COMMON SENTENCES
+
+              DEC   OCT               DEC   OCT               DEC   OCT               DEC   OCT               DEC   OCT
+           C    67 00103           B    66 00102           A    65 00101        ROOT    64 00100
+
+                                            SUBROUTINES PUNCHED FROM LIBRARY
+        SQRT         LOG         EXP       EXP(3       (RTN)       (LEV)       (SPH)       (FIL)       (BDC)
+(FIL)  BCD 1(FIL)
+(SPH)  BCD 1(SPH)
+(BDC)  BCD 1(BDC)
+(LEV)  BCD 1(LEV)
+EXP(3  BCD 1EXP(3
+SQRT   BCD 1SQRT
+1A     CLA 3)
+       STO A
+2A     CLA 3)+1
+       STO B
+3A     CLS 3)+2
+       STO C
+4A     LDQ 3)+3
+       FMP A
+       STO 1)+1
+       LDQ C
+       FMP 3)+4
+       STO 7)
+       LDQ 7)
+       FMP A
+       STO 1)+2
+       CLA B
+       LDQ 3)+3
+       BSS
+       TSX EXP(3,4
+       NTR *+2
+       PZE 0,0,4
+       FSB 1)+2
+       BSS
+       TSX SQRT,4
+       NTR *+2
+       PZE 0,0,4
+       FSB B
+       FDP 1)+1
+       STQ ROOT
+5A     CAL *
+       XIT (LEV)
+       ETM
+       CAL (BDC)
+       SLW 1
+       CAL (SPH)
+5D1    NTR 8)1
+6A     ETM
+       NTR ROOT
+       LTM
+7A     CAL *
+       XIT (FIL)
+9A     HPR
+       TRA 9A
+3)     OCT +202600000000
+       OCT +201663146314
+       OCT +205776560507
+       OCT +202400000000
+       OCT +203400000000
+6)     OCT +233000000000
+       OCT +000000077777
+       OCT +000000000000
+       OCT +000001000000
+       OCT +000000000000
+8)1    BCD 1(5F14.
+       BCD 15)
+       OCT -377777777777
