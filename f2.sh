@@ -1,53 +1,145 @@
 #!/bin/sh
 set -e
 
-# Configuration file for "simple" jobs (no subroutines)
+##############################################################################
+# Config files for IBM 704 Fortran II:
+#   - f2_simple.xml:   Minimal config (no subroutines).
+#   - f2_subroutines.xml: Enhanced config for calls/SUBROUTINE/FUNCTION usage.
+##############################################################################
 IBM704_CONFIG_SIMPLE="f2_simple.xml"
-# Configuration file for jobs with subroutines
 IBM704_CONFIG_SUBR="f2_subroutines.xml"
 
-# 1) Check if the first parameter (input Fortran file) is provided
-if [ -z "$1" ]; then
-    echo "Error: No input file provided."
-    echo "Usage: $0 <input.f>"
-    exit 1
+# Check that we have at least one source file.
+if [ $# -lt 1 ]; then
+  echo "Usage: $0 <main.for> [subr1.for] [subr2.for] ..."
+  exit 1
 fi
 
-# 2) Verify the input file actually exists
-if [ ! -f "$1" ]; then
-    echo "Error: Input file '$1' does not exist."
-    exit 1
-fi
+##############################################################################
+# 1) DETECT SUBROUTINE USAGE
+#    If *any* file contains 'SUBROUTINE', 'FUNCTION', or 'CALL' (case-insensitive),
+#    we'll choose the "subroutines" config.
+##############################################################################
+NEEDS_SUBR=0
+for SRC in "$@"; do
+  if grep -Eiq 'SUBROUTINE|FUNCTION|CALL' "$SRC" 2>/dev/null; then
+    NEEDS_SUBR=1
+    break
+  fi
+done
 
-# 3) Detect subroutine usage by searching for SUBROUTINE, FUNCTION, or CALL
-#    (case-insensitive check for safety, but you can remove -i if not needed)
-if grep -Ei 'SUBROUTINE|FUNCTION|CALL' "$1" >/dev/null 2>&1; then
-    IBM704_CONFIG="$IBM704_CONFIG_SUBR"
-    echo "Detected subroutine/function usage; using config: $IBM704_CONFIG"
+if [ $NEEDS_SUBR -eq 1 ]; then
+  IBM704_CONFIG="$IBM704_CONFIG_SUBR"
+  echo "[INFO] Detected subroutine usage -> Using config: $IBM704_CONFIG"
 else
-    IBM704_CONFIG="$IBM704_CONFIG_SIMPLE"
-    echo "No subroutine usage detected; using config: $IBM704_CONFIG"
+  IBM704_CONFIG="$IBM704_CONFIG_SIMPLE"
+  echo "[INFO] No subroutine usage found -> Using config: $IBM704_CONFIG"
 fi
 
-# 4) Remove existing output files if present
-rm -f ibm704/SourceDeck.cbn ibm704/Punched.cbn ibm704/PunchedObj.cbn LP.txt \
-      ibm704/*.drm "${1%.*}.cbn"
+##############################################################################
+# 2) COMPILE EACH SOURCE FILE INDIVIDUALLY
+#    - For each .for file:
+#         1) Punch it into ibm704/SourceDeck.cbn
+#         2) Run the compiler (Sim704 + chosen config)
+#         3) The compiler outputs PunchedObj.cbn -> rename to <basename>.cbn
+##############################################################################
+OBJDECKS=""
+INDEX=1
+for SRC in "$@"; do
+  if [ ! -f "$SRC" ]; then
+    echo "Error: file '$SRC' not found."
+    exit 1
+  fi
 
-# 5) Punch the input file into a card-image deck (SourceDeck.cbn)
-wine tools/Punch.exe "$1" ibm704/SourceDeck.cbn
+  # Derive an .cbn name from the source file name
+  BASENAME="${SRC%.*}"
+  OBJDECK="${BASENAME}.cbn"
 
-# 6) Run the Fortran II compiler on the IBM 704 emulator
-#    We assume you want to pass F2.xml and the chosen config, in that order.
-#    (Adjust arguments as your emulator requires.)
-(cd ibm704 && wine Sim704.exe "$IBM704_CONFIG")
+  echo "[INFO] Compiling '$SRC' -> '$OBJDECK'"
 
-# 7) If the compiler produced PunchedObj.cbn, clean it up and rename
-if [ -f ibm704/PunchedObj.cbn ]; then
-    wine tools/CleanDeck.exe ibm704/PunchedObj.cbn "${1%.*}.cbn"
+  # Clean up old decks
+  rm -f ibm704/SourceDeck.cbn ibm704/Punched.cbn ibm704/PunchedObj.cbn ibm704/*.drm
+
+  # Punch the source into "SourceDeck.cbn" for the emulator
+  wine tools/Punch.exe "$SRC" ibm704/SourceDeck.cbn
+
+  # Invoke the IBM 704 Fortran II compiler + whichever config
+  (
+    cd ibm704
+    wine Sim704.exe "$IBM704_CONFIG"
+  )
+
+  # If compilation succeeded, we should have PunchedObj.cbn
+  if [ -f ibm704/PunchedObj.cbn ]; then
+    wine tools/CleanDeck.exe ibm704/PunchedObj.cbn "$OBJDECK"
+    OBJDECKS="$OBJDECKS $OBJDECK"
+  else
+    echo "[WARN] No PunchedObj.cbn produced for $SRC"
+  fi
+
+  INDEX=$((INDEX + 1))
+done
+
+# Display the compiled object decks we have so far
+echo "[INFO] Compiled object decks: $OBJDECKS"
+
+##############################################################################
+# 3) IF NO SUBROUTINES, WE'RE DONE
+#    You end up with one or more .cbn "object decks." If you *really* want
+#    to combine them anyway, you can do so, but typically you only needed a
+#    single main deck if there's no subroutine usage.
+##############################################################################
+if [ $NEEDS_SUBR -eq 0 ]; then
+  echo "[INFO] Subroutines not used, so no link step required."
+  echo "      Each file produced its own .cbn: $OBJDECKS"
+  echo "[DONE] Exiting."
+  exit 0
 fi
 
-# 8) Remove any leftover .drm files if needed
-rm -f ibm704/*.drm
+##############################################################################
+# 4) LINK STEP (IF SUBROUTINES ARE USED)
+#    We'll treat the FIRST object deck in OBJDECKS as the "main" deck (which
+#    should contain the final TRANSFER card). We'll do the standard approach:
+#    - Split off the last card (transfer.cbn) from the main deck
+#    - Append all subsequent object decks
+#    - Re-append transfer.cbn at the end
+#    - Write the result to "output.cbn"
+#
+#    You can adapt the naming to suit your workflow.
+##############################################################################
+MAINOBJ=$(echo "$OBJDECKS" | awk '{print $1}')   # First item
+OTHERS=$(echo "$OBJDECKS" | cut -d ' ' -f2-)
 
-echo "Compilation finished. Output deck: ${1%.*}.cbn"
+if [ -z "$MAINOBJ" ]; then
+  echo "[ERROR] No main object deck found? Something went wrong."
+  exit 1
+fi
+
+echo "[INFO] Linking subroutines with main deck '$MAINOBJ'"
+
+rm -f main_stripped.cbn transfer.cbn output.cbn
+
+# (A) Split MAINOBJ into "all but last card" and "the last card (transfer)"
+wine tools/SplitDeck.exe "$MAINOBJ" -1 main_stripped.cbn transfer.cbn
+
+# (B) Build up a chain starting with main_stripped, then the other decks
+CARDCHAIN="main_stripped.cbn"
+for deck in $OTHERS; do
+  if [ "$deck" != "$MAINOBJ" ]; then
+    CARDCHAIN="$CARDCHAIN+$deck"
+  fi
+done
+
+# (C) Finally re-append the transfer card
+CARDCHAIN="$CARDCHAIN+transfer.cbn"
+
+# (D) Merge everything into "output.cbn"
+wine tools/CopyCards.exe "$CARDCHAIN" output.cbn
+
+echo "[INFO] Final linked deck with subroutines: output.cbn"
+
+# (E) Clean up
+rm -f main_stripped.cbn transfer.cbn
+
+echo "[DONE] All steps complete. Use 'output.cbn' to run your program."
 
