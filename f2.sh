@@ -4,7 +4,7 @@ set -e
 ##############################################################################
 # Config files for IBM 704 Fortran II:
 #   - f2_simple.xml:   Minimal config (no subroutines).
-#   - f2_subroutines.xml: Enhanced config for calls/SUBROUTINE/FUNCTION usage.
+#   - f2_subroutines.xml: Enhanced config for CALL/SUBROUTINE/FUNCTION usage.
 ##############################################################################
 IBM704_CONFIG_SIMPLE="f2_simple.xml"
 IBM704_CONFIG_SUBR="f2_subroutines.xml"
@@ -142,4 +142,3 @@ echo "[INFO] Final linked deck with subroutines: output.cbn"
 rm -f main_stripped.cbn transfer.cbn
 
 echo "[DONE] All steps complete. Use 'output.cbn' to run your program."
-
