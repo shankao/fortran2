@@ -1,0 +1,11 @@
+C CHECK IF NUM IS A PRIME
+      FUNCTION ISPRIM(NUM)
+      ISPRIM = 1
+      LIM = NUM / 2
+      DO 250 I = 2, LIM
+      IF (XMODF(NUM, I)) 240, 240, 250
+240   ISPRIM = 0
+      RETURN
+250   CONTINUE
+      RETURN
+      END (2,2,2,2,2)

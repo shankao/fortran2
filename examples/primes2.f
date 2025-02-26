@@ -1,0 +1,29 @@
+C COMPUTE PRIME NUMBERS USING TRIAL DIVISION
+      DIMENSION IPM(1000)
+      NMAX = 1000
+      PRINT 9
+9     FORMAT(7H PRIMES )
+
+      N = 1
+      IPM(1) = 2
+
+      DO 200 I = 3, NMAX, 2
+      IPRM = ISPRIM(I)
+      IF (IPRM) 200, 200, 280
+280   N = N + 1
+      IPM(N) = I
+200   CONTINUE
+
+      PRINT 900, N
+900   FORMAT(6H FOUND , I5, 7H PRIMES)
+
+C PRINT PRIMES
+      DO 500 I = 1, N
+      PRINT 910, IPM(I)
+910   FORMAT(I5)
+500   CONTINUE
+
+      PRINT 920
+920   FORMAT(5H DONE)
+      STOP
+      END (2,2,2,2,2)
